@@ -1,0 +1,83 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      snapshot:
+        description: "Build a snapshot without publishing"
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  goreleaser:
+    name: GoReleaser
+    runs-on: macos-latest
+    env:
+      CARGO_TERM_COLOR: always
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
+      OFKM_PAT_TOKEN: ${{ secrets.OFKM_PAT_TOKEN }}
+      MACOS_SIGN_P12: ${{ secrets.MACOS_SIGN_P12 }}
+      MACOS_SIGN_PASSWORD: ${{ secrets.MACOS_SIGN_PASSWORD }}
+      MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
+      MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+      MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: >-
+            x86_64-unknown-linux-gnu,
+            aarch64-unknown-linux-gnu,
+            x86_64-apple-darwin,
+            aarch64-apple-darwin,
+            x86_64-pc-windows-gnu
+
+      - name: Install Zig
+        run: brew install zig
+
+      - name: Install cargo-zigbuild
+        run: cargo install --locked cargo-zigbuild
+
+      - name: Check GoReleaser config
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser-pro
+          version: "~> v2"
+          args: check
+
+      - name: Run GoReleaser snapshot
+        if: github.event_name == 'workflow_dispatch' && inputs.snapshot
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser-pro
+          version: "~> v2"
+          args: release --clean --snapshot --skip=publish
+
+      - name: Upload snapshot artifacts
+        if: github.event_name == 'workflow_dispatch' && inputs.snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: tally-snapshot
+          path: dist/*
+
+      - name: Run GoReleaser release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser-pro
+          version: "~> v2"
+          args: release --clean

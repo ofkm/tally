@@ -1,0 +1,103 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema-pro.json
+
+version: 2
+pro: true
+
+project_name: tally
+
+metadata:
+  homepage: "https://github.com/ofkm/tally"
+  description: "A modern Rust source line counter inspired by cloc."
+  license: BSD-3-Clause
+
+builds:
+  - id: tally
+    builder: rust
+    binary: tally
+    flags:
+      - --release
+      - --locked
+    targets:
+      - x86_64-unknown-linux-gnu
+      - aarch64-unknown-linux-gnu
+      - x86_64-apple-darwin
+      - aarch64-apple-darwin
+      - x86_64-pc-windows-gnu
+
+universal_binaries:
+  - id: tally-darwin-universal
+    ids:
+      - tally
+    name_template: tally
+    replace: true
+
+notarize:
+  macos:
+    - enabled: '{{ isEnvSet "MACOS_SIGN_P12" }}'
+      ids:
+        - tally-darwin-universal
+      sign:
+        certificate: "{{ .Env.MACOS_SIGN_P12 }}"
+        password: "{{ .Env.MACOS_SIGN_PASSWORD }}"
+      notarize:
+        issuer_id: "{{ .Env.MACOS_NOTARY_ISSUER_ID }}"
+        key_id: "{{ .Env.MACOS_NOTARY_KEY_ID }}"
+        key: "{{ .Env.MACOS_NOTARY_KEY }}"
+        wait: true
+        timeout: 20m
+
+archives:
+  - id: tally
+    ids:
+      - tally
+      - tally-darwin-universal
+    formats: [tar.gz]
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else if eq .Arch "all" }}universal
+      {{- else }}{{ .Arch }}{{ end }}
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+checksum:
+  name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"
+
+homebrew_casks:
+  - name: tally
+    ids:
+      - tally
+    binaries:
+      - tally
+    directory: Casks
+    homepage: "https://github.com/ofkm/tally"
+    description: "A modern Rust source line counter inspired by cloc."
+    commit_msg_template: "chore(homebrew): update {{ .ProjectName }} to {{ .Tag }}"
+    skip_upload: auto
+    repository:
+      owner: ofkm
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.OFKM_PAT_TOKEN }}"
+    commit_author:
+      name: goreleaserbot
+      email: goreleaserbot@users.noreply.github.com
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+
+release:
+  footer: >-
+
+    ---
+
+    Released by [GoReleaser](https://github.com/goreleaser/goreleaser).
