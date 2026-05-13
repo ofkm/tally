@@ -71,9 +71,9 @@ fn tree_flag_reports_directory_shares_by_language() {
     let text = String::from_utf8(output).unwrap();
 
     assert!(text.contains("Tree:"));
-    assert!(text.contains("Rust:"));
-    assert!(text.contains("+-- src"));
-    assert!(text.contains("+-- bin"));
+    assert!(text.contains("Rust"));
+    assert!(text.contains("└─ src") || text.contains("├─ src"));
+    assert!(text.contains("└─ bin") || text.contains("├─ bin"));
     assert!(text.contains("100.0%"));
     assert!(text.contains("50.0%"));
 }
