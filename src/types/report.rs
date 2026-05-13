@@ -21,6 +21,8 @@ pub struct CountRequest {
 pub struct CountOptions {
     /// Include per-file totals in the final report.
     pub by_file: bool,
+    /// Include per-language directory tree totals in the final report.
+    pub tree: bool,
     /// Only include files with these normalized extensions.
     pub include_ext: Vec<String>,
     /// Exclude files with these normalized extensions.
@@ -51,6 +53,7 @@ impl Default for CountOptions {
     fn default() -> Self {
         Self {
             by_file: false,
+            tree: false,
             include_ext: Vec::new(),
             exclude_ext: Vec::new(),
             exclude_dir: Vec::new(),
@@ -136,6 +139,25 @@ impl FileTotals {
     }
 }
 
+/// Aggregated line counts for one directory within a language tree.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DirectoryTotals {
+    /// Directory path represented by this total.
+    pub path: PathBuf,
+    /// Aggregated counts for all matching files under this directory.
+    #[serde(flatten)]
+    pub totals: LanguageTotals,
+}
+
+/// Directory totals for one language.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct LanguageTree {
+    /// Language name for this directory tree.
+    pub language: String,
+    /// Directories sorted with the root first, then by path name.
+    pub directories: Vec<DirectoryTotals>,
+}
+
 /// Metadata captured at the start and end of a count run.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReportHeader {
@@ -156,6 +178,8 @@ pub struct Report {
     pub languages: Vec<(String, LanguageTotals)>,
     /// Per-file totals, present when requested by options.
     pub files: Vec<FileTotals>,
+    /// Per-language directory totals, present when requested by options.
+    pub tree: Vec<LanguageTree>,
     /// Aggregate totals across all counted files.
     pub sum: LanguageTotals,
     /// Discovery diagnostics for ignored files or directories.

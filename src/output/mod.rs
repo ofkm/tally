@@ -2,8 +2,11 @@ use comfy_table::{Attribute, Cell, CellAlignment, Color, Table, presets::ASCII_F
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
+use std::path::Path;
 
-use crate::types::{CountError, FileTotals, LanguageTotals, OutputFormat, Report, ReportHeader};
+use crate::types::{
+    CountError, FileTotals, LanguageTotals, LanguageTree, OutputFormat, Report, ReportHeader,
+};
 
 /// Formats a report using the selected output format.
 ///
@@ -65,6 +68,15 @@ fn table(report: &Report) -> String {
                 file.comment,
                 file.code
             );
+        }
+    }
+
+    if !report.tree.is_empty() {
+        out.push_str("\nTree:\n");
+        for tree in &report.tree {
+            let _ = writeln!(out, "{}:", tree.language);
+            out.push_str(&tree_table(tree));
+            out.push('\n');
         }
     }
 
@@ -134,6 +146,50 @@ fn summary_cell(content: impl Into<String>) -> Cell {
         .add_attribute(Attribute::Bold)
 }
 
+fn tree_table(tree: &LanguageTree) -> String {
+    let denominator = tree
+        .directories
+        .first()
+        .map_or(0, |directory| directory.totals.lines());
+    let mut table = Table::new();
+    table.load_preset(ASCII_FULL_CONDENSED).set_header(vec![
+        header_cell("Directory"),
+        right_header_cell("Files"),
+        right_header_cell("Blank"),
+        right_header_cell("Comment"),
+        right_header_cell("Code"),
+        right_header_cell("Total"),
+        right_header_cell("Share"),
+    ]);
+
+    for directory in &tree.directories {
+        table.add_row(vec![
+            Cell::new(tree_directory_label(&directory.path)).fg(Color::Green),
+            right_cell(format_count(directory.totals.files)),
+            right_cell(format_count(directory.totals.blank)),
+            right_cell(format_count(directory.totals.comment)),
+            right_cell(format_count(directory.totals.code)).fg(Color::Yellow),
+            right_cell(format_count(directory.totals.lines())).fg(Color::Cyan),
+            right_cell(format_percent(directory.totals.lines(), denominator)).fg(Color::Magenta),
+        ]);
+    }
+
+    table.to_string()
+}
+
+fn tree_directory_label(path: &Path) -> String {
+    if path == Path::new(".") {
+        return ".".to_string();
+    }
+
+    let depth = path.components().count().saturating_sub(1);
+    let name = path.file_name().map_or_else(
+        || path.display().to_string(),
+        |name| name.to_string_lossy().into_owned(),
+    );
+    format!("{}+-- {name}", "  ".repeat(depth))
+}
+
 fn format_count(value: u64) -> String {
     let digits = value.to_string();
     let mut grouped = String::with_capacity(digits.len() + digits.len() / 3);
@@ -170,6 +226,8 @@ struct MachineReport<'a> {
     #[serde(skip_serializing_if = "slice_is_empty")]
     files: &'a [FileTotals],
     #[serde(skip_serializing_if = "slice_is_empty")]
+    tree: &'a [LanguageTree],
+    #[serde(skip_serializing_if = "slice_is_empty")]
     ignored: &'a [String],
     #[serde(skip_serializing_if = "slice_is_empty")]
     errors: &'a [String],
@@ -186,6 +244,7 @@ impl<'a> From<&'a Report> for MachineReport<'a> {
                 .collect(),
             sum: &report.sum,
             files: &report.files,
+            tree: &report.tree,
             ignored: &report.ignored,
             errors: &report.errors,
         }

@@ -43,6 +43,9 @@ struct Args {
     )]
     by_file: bool,
 
+    #[arg(long, help = "Include per-language directory tree totals in reports")]
+    tree: bool,
+
     #[arg(
         long = "include-ext",
         alias = "include_ext",
@@ -143,6 +146,7 @@ pub fn run() -> Result<(), CountError> {
         inputs: args.inputs,
         options: CountOptions {
             by_file: args.by_file,
+            tree: args.tree,
             include_ext: normalize_exts(args.include_ext),
             exclude_ext: normalize_exts(args.exclude_ext),
             exclude_dir: args.exclude_dir,
