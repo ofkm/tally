@@ -206,9 +206,12 @@ pub fn languages() -> &'static [LanguageDefinition] {
 /// Looks up a language by file extension.
 #[must_use]
 pub fn by_extension(extension: &str) -> Option<&'static LanguageDefinition> {
-    let key = extension.to_ascii_lowercase();
     BY_EXTENSION
-        .get(key.as_str())
+        .get(extension)
+        .or_else(|| {
+            let key = extension.to_ascii_lowercase();
+            BY_EXTENSION.get(key.as_str())
+        })
         .and_then(|name| BY_NAME.get(name).copied())
 }
 

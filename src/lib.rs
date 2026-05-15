@@ -1,7 +1,7 @@
-//! Library interface for `tally`, a source line counter inspired by cloc.
+//! Library interface for `tally`, a small source line counter.
 //!
 //! The crate exposes reusable modules for discovering source files, classifying
-//! languages, counting blank/comment/code lines, and rendering reports.
+//! languages, counting blank/comment/code lines, and rendering a compact report.
 
 /// Command-line parsing and binary entrypoint helpers.
 pub mod cli;
@@ -11,7 +11,7 @@ pub mod counter;
 pub mod discovery;
 /// Language classification and syntax definitions.
 pub mod language;
-/// Report rendering for table, JSON, and YAML formats.
+/// Compact text report rendering.
 pub mod output;
 /// End-to-end counting orchestration.
 pub mod runtime;
