@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use crate::output;
 use crate::runtime::count;
 use crate::types::{CountError, CountRequest};
-const HELP: &str = "Usage: tally [PATH]...
+const HELP: &str = "Usage: tally [--tree] [PATH]...
 
 Count source code lines by language.
 
@@ -18,10 +18,10 @@ With no paths, tally counts the current directory.
 ///
 /// Returns [`CountError`] when discovery, counting, or report formatting fails.
 pub fn run() -> Result<(), CountError> {
-    let Action::Count(inputs) = parse_args(env::args_os().skip(1))? else {
+    let Action::Count { inputs, tree } = parse_args(env::args_os().skip(1))? else {
         return Ok(());
     };
-    let request = CountRequest { inputs };
+    let request = CountRequest { inputs, tree };
     let report = count(&request)?;
 
     let text = output::format_report(&report);
@@ -30,12 +30,13 @@ pub fn run() -> Result<(), CountError> {
 }
 
 enum Action {
-    Count(Vec<PathBuf>),
+    Count { inputs: Vec<PathBuf>, tree: bool },
     PrintOnly,
 }
 
 fn parse_args(args: impl Iterator<Item = OsString>) -> Result<Action, CountError> {
     let mut inputs = Vec::new();
+    let mut tree = false;
     for arg in args {
         if arg == "-h" || arg == "--help" {
             print!("{HELP}");
@@ -44,6 +45,10 @@ fn parse_args(args: impl Iterator<Item = OsString>) -> Result<Action, CountError
         if arg == "-V" || arg == "--version" {
             println!("tally {}", env!("CARGO_PKG_VERSION"));
             return Ok(Action::PrintOnly);
+        }
+        if arg == "--tree" {
+            tree = true;
+            continue;
         }
         if arg.as_encoded_bytes().starts_with(b"-") {
             return Err(CountError::InvalidArgument(
@@ -56,5 +61,5 @@ fn parse_args(args: impl Iterator<Item = OsString>) -> Result<Action, CountError
     if inputs.is_empty() {
         inputs.push(PathBuf::from("."));
     }
-    Ok(Action::Count(inputs))
+    Ok(Action::Count { inputs, tree })
 }

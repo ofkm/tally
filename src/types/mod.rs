@@ -1,3 +1,5 @@
 mod report;
 
-pub use report::{CountError, CountRequest, FileTotals, LanguageTotals, Report};
+pub use report::{
+    CountError, CountRequest, DirectoryTotals, FileTotals, LanguageTotals, LanguageTree, Report,
+};

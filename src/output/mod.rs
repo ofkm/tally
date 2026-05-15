@@ -9,7 +9,7 @@ pub fn format_report(report: &Report) -> String {
         .languages
         .iter()
         .map(|(language, totals)| OutputRow {
-            language: language.as_str(),
+            label: language.as_str().into(),
             files: format_count(totals.files),
             blank: format_count(totals.blank),
             comment: format_count(totals.comment),
@@ -17,7 +17,7 @@ pub fn format_report(report: &Report) -> String {
         })
         .collect::<Vec<_>>();
     rows.push(OutputRow {
-        language: "TOTAL",
+        label: "TOTAL".into(),
         files: format_count(report.sum.files),
         blank: format_count(report.sum.blank),
         comment: format_count(report.sum.comment),
@@ -46,12 +46,12 @@ pub fn format_report(report: &Report) -> String {
     out.push('\n');
 
     for row in rows {
-        if row.language == "TOTAL" {
+        if row.label == "TOTAL" {
             out.push_str(&divider);
             out.push('\n');
         }
 
-        let language = color_language(row.language, widths.language);
+        let language = color_language(&row.label, widths.language);
         let _ = writeln!(
             out,
             "{}  {:>files$}  {:>blank$}  {:>comment$}  {:>code$}",
@@ -67,6 +67,26 @@ pub fn format_report(report: &Report) -> String {
         );
     }
 
+    if !report.tree.is_empty() {
+        out.push_str("\nTree:\n");
+        for tree in &report.tree {
+            let language = color_language(&tree.language, tree.language.len());
+            let _ = writeln!(out, "\n{language}");
+            let rows = tree
+                .directories
+                .iter()
+                .map(|directory| OutputRow {
+                    label: directory.path.to_string_lossy(),
+                    files: format_count(directory.totals.files),
+                    blank: format_count(directory.totals.blank),
+                    comment: format_count(directory.totals.comment),
+                    code: format_count(directory.totals.code),
+                })
+                .collect::<Vec<_>>();
+            write_plain_rows(&mut out, "Directory", &rows);
+        }
+    }
+
     if !report.errors.is_empty() {
         out.push_str("\nErrors:\n");
         for error in &report.errors {
@@ -79,7 +99,7 @@ pub fn format_report(report: &Report) -> String {
 }
 
 struct OutputRow<'a> {
-    language: &'a str,
+    label: std::borrow::Cow<'a, str>,
     files: String,
     blank: String,
     comment: String,
@@ -106,7 +126,7 @@ impl OutputWidths {
                 code: "Code".len(),
             },
             |mut widths, row| {
-                widths.language = widths.language.max(row.language.len());
+                widths.language = widths.language.max(row.label.len());
                 widths.files = widths.files.max(row.files.len());
                 widths.blank = widths.blank.max(row.blank.len());
                 widths.comment = widths.comment.max(row.comment.len());
@@ -125,6 +145,53 @@ impl OutputWidths {
             "-".repeat(self.code),
         ]
         .join("  ")
+    }
+
+    fn with_first_header(mut self, header: &str) -> Self {
+        self.language = self.language.max(header.len());
+        self
+    }
+}
+
+fn write_plain_rows(out: &mut String, first_header: &str, rows: &[OutputRow<'_>]) {
+    if rows.is_empty() {
+        return;
+    }
+
+    let widths = OutputWidths::from_rows(rows).with_first_header(first_header);
+    let divider = widths.divider();
+    let _ = writeln!(
+        out,
+        "{:<language$}  {:>files$}  {:>blank$}  {:>comment$}  {:>code$}",
+        first_header,
+        "Files",
+        "Blank",
+        "Comment",
+        "Code",
+        language = widths.language,
+        files = widths.files,
+        blank = widths.blank,
+        comment = widths.comment,
+        code = widths.code,
+    );
+    out.push_str(&divider);
+    out.push('\n');
+
+    for row in rows {
+        let _ = writeln!(
+            out,
+            "{:<language$}  {:>files$}  {:>blank$}  {:>comment$}  {:>code$}",
+            row.label,
+            row.files,
+            row.blank,
+            row.comment,
+            row.code,
+            language = widths.language,
+            files = widths.files,
+            blank = widths.blank,
+            comment = widths.comment,
+            code = widths.code,
+        );
     }
 }
 
@@ -236,6 +303,7 @@ mod tests {
                     code: 1_234,
                 },
             )],
+            tree: Vec::new(),
             sum: LanguageTotals {
                 files: 2,
                 blank: 1,

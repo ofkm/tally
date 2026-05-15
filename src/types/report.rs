@@ -7,6 +7,8 @@ use thiserror::Error;
 pub struct CountRequest {
     /// Input files or directories to count.
     pub inputs: Vec<PathBuf>,
+    /// Include per-language directory totals.
+    pub tree: bool,
 }
 
 /// Aggregated line counts for one language or for the full report.
@@ -66,11 +68,31 @@ impl FileTotals {
     }
 }
 
+/// Aggregated line counts for one directory within a language tree.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DirectoryTotals {
+    /// Directory path represented by this total.
+    pub path: PathBuf,
+    /// Aggregated counts for all matching files under this directory.
+    pub totals: LanguageTotals,
+}
+
+/// Directory totals for one language.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LanguageTree {
+    /// Language name for this directory tree.
+    pub language: String,
+    /// Directories sorted with the root first, then by path name.
+    pub directories: Vec<DirectoryTotals>,
+}
+
 /// Full count report produced by the runtime.
 #[derive(Debug, Clone)]
 pub struct Report {
     /// Per-language totals sorted by descending code/comment/blank counts.
     pub languages: Vec<(String, LanguageTotals)>,
+    /// Per-language directory totals, present when requested.
+    pub tree: Vec<LanguageTree>,
     /// Aggregate totals across all counted files.
     pub sum: LanguageTotals,
     /// Non-fatal file-level count errors.
